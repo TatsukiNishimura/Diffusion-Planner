@@ -742,6 +742,19 @@ int main(int argc, char ** argv)
       const Odometry odometry = rosbag_parser.deserialize_message<Odometry>(msg);
       kinematic_states.push_back(odometry);
       timestamp_stats_map.add_timestamp("/localization/kinematic_state", parse_timestamp(odometry.header.stamp), static_cast<int64_t>(msg->time_stamp));
+
+      // 1. ウインカーのダミー
+      TurnIndicatorsReport dummy_turn;
+      dummy_turn.stamp = odometry.header.stamp; // タイムスタンプを位置情報に合わせる
+      turn_indicators.push_back(dummy_turn);
+      timestamp_stats_map.add_timestamp("/vehicle/status/turn_indicators_status", parse_timestamp(dummy_turn.stamp), static_cast<int64_t>(msg->time_stamp));
+
+      // 2. 信号機のダミー
+      TrafficLightGroupArray dummy_traffic;
+      dummy_traffic.stamp = odometry.header.stamp; // タイムスタンプを位置情報に合わせる
+      traffic_signals.push_back(dummy_traffic);
+      timestamp_stats_map.add_timestamp("/perception/traffic_light_recognition/traffic_signals", parse_timestamp(dummy_traffic.stamp), static_cast<int64_t>(msg->time_stamp));
+      
     } else if (msg->topic_name == "/localization/acceleration") {
       const AccelWithCovarianceStamped accel =
         rosbag_parser.deserialize_message<AccelWithCovarianceStamped>(msg);
@@ -755,17 +768,18 @@ int main(int argc, char ** argv)
       const LaneletRoute route = rosbag_parser.deserialize_message<LaneletRoute>(msg);
       route_msgs.push_back(route);
       timestamp_stats_map.add_timestamp("/planning/mission_planning/route", parse_timestamp(route.header.stamp), static_cast<int64_t>(msg->time_stamp));
-    } else if (msg->topic_name == "/vehicle/status/turn_indicators_status") {
-      const TurnIndicatorsReport turn_ind =
-        rosbag_parser.deserialize_message<TurnIndicatorsReport>(msg);
-      turn_indicators.push_back(turn_ind);
-      timestamp_stats_map.add_timestamp("/vehicle/status/turn_indicators_status", parse_timestamp(turn_ind.stamp), static_cast<int64_t>(msg->time_stamp));
-    } else if (msg->topic_name == "/perception/traffic_light_recognition/traffic_signals") {
-      const TrafficLightGroupArray traffic_signal =
-        rosbag_parser.deserialize_message<TrafficLightGroupArray>(msg);
-      traffic_signals.push_back(traffic_signal);
-      timestamp_stats_map.add_timestamp("/perception/traffic_light_recognition/traffic_signals", parse_timestamp(traffic_signal.stamp), static_cast<int64_t>(msg->time_stamp));
-    }
+    } 
+    // else if (msg->topic_name == "/vehicle/status/turn_indicators_status") {
+    //   const TurnIndicatorsReport turn_ind =
+    //     rosbag_parser.deserialize_message<TurnIndicatorsReport>(msg);
+    //   turn_indicators.push_back(turn_ind);
+    //   timestamp_stats_map.add_timestamp("/vehicle/status/turn_indicators_status", parse_timestamp(turn_ind.stamp), static_cast<int64_t>(msg->time_stamp));
+    // } else if (msg->topic_name == "/perception/traffic_light_recognition/traffic_signals") {
+    //   const TrafficLightGroupArray traffic_signal =
+    //     rosbag_parser.deserialize_message<TrafficLightGroupArray>(msg);
+    //   traffic_signals.push_back(traffic_signal);
+    //   timestamp_stats_map.add_timestamp("/perception/traffic_light_recognition/traffic_signals", parse_timestamp(traffic_signal.stamp), static_cast<int64_t>(msg->time_stamp));
+    // }
 
     parse_count++;
   }

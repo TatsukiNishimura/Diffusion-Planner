@@ -15,4 +15,7 @@ colcon build \
   --symlink-install \
   --cmake-args \
   -DCMAKE_BUILD_TYPE=Release \
+  -DPython3_EXECUTABLE=/usr/bin/python3 \
   --packages-up-to autoware_diffusion_planner_tools
+
+source install/setup.bash

@@ -23,7 +23,7 @@ from diffusion_planner.utils.train_utils import resume_model, set_seed
 from timm.utils import ModelEma
 from torch import optim
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader, DistributedSampler,RandomSampler
 
 
 @torch.no_grad()
@@ -55,7 +55,7 @@ def validate_model(model, val_loader, args, return_pred=False) -> tuple[float, f
         turn_indicator_seq = inputs["turn_indicators"]
 
         inputs["sampled_trajectories"] = torch.zeros(
-            B, MAX_NUM_AGENTS, OUTPUT_T + 1, POSE_DIM, dtype=torch.float32
+            B, MAX_NUM_AGENTS, OUTPUT_T + 1, POSE_DIM, dtype=torch.float32,device=device
         )
         inputs["delay"] = torch.full((B,), delay, dtype=torch.float32, device=device)
 
@@ -241,7 +241,7 @@ def get_args():
     )
 
     # distributed training parameters
-    parser.add_argument("--ddp", default=True, type=boolean, help="use ddp or not")
+    parser.add_argument("--ddp", default=False, type=boolean, help="use ddp or not")
     parser.add_argument("--port", default="22323", type=str, help="port")
 
     return parser.parse_args()
@@ -277,9 +277,10 @@ if __name__ == "__main__":
 
     # set up data loaders
     valid_set = DiffusionPlannerData(args.valid_set_list)
-    valid_sampler = DistributedSampler(
-        valid_set, num_replicas=ddp.get_world_size(), rank=global_rank, shuffle=False
-    )
+    # valid_sampler = DistributedSampler(
+    #     valid_set, num_replicas=ddp.get_world_size(), rank=global_rank, shuffle=False
+    # )
+    valid_sampler = RandomSampler(valid_set)
     valid_loader = DataLoader(
         valid_set,
         sampler=valid_sampler,

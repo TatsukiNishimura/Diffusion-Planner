@@ -18,7 +18,7 @@ from diffusion_planner.utils.train_utils import resume_model, set_seed
 from timm.utils import ModelEma
 from torch import optim
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader, DistributedSampler,RandomSampler
 from valid_predictor import validate_model
 
 
@@ -77,7 +77,7 @@ def get_args():
     # Training
     parser.add_argument("--seed", type=int, default=3407)
     parser.add_argument("--train_epochs", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=1024)
+    parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--save_utd", type=int, default=10)
     parser.add_argument("--learning_rate", type=float, default=2e-4)
     parser.add_argument("--warm_up_epoch", type=int, default=5)
@@ -153,7 +153,7 @@ def get_args():
     parser.add_argument("--notes", default="", type=str)
 
     # distributed training parameters
-    parser.add_argument("--ddp", default=True, type=boolean, help="use ddp or not")
+    parser.add_argument("--ddp", default=False, type=boolean, help="use ddp or not")
     parser.add_argument("--port", default="22323", type=str, help="port")
 
     args = parser.parse_args()
@@ -223,9 +223,11 @@ def model_training(args):
     train_set = DiffusionPlannerData(args.train_set_list)
     valid_set = DiffusionPlannerData(args.valid_set_list)
 
-    train_sampler = DistributedSampler(
-        train_set, num_replicas=ddp.get_world_size(), rank=global_rank, shuffle=True
-    )
+
+    # train_sampler = DistributedSampler(
+    #     train_set, num_replicas=ddp.get_world_size(), rank=global_rank, shuffle=True
+    # )
+    train_sampler =RandomSampler(train_set)
     train_loader = DataLoader(
         train_set,
         sampler=train_sampler,
@@ -234,6 +236,10 @@ def model_training(args):
         pin_memory=args.pin_mem,
         drop_last=True,
     )
+    # print("len train_set")
+    # print(len(train_set))
+    # print(len(train_loader))
+    # exit()
 
     # Validation is only performed on rank 0 with full dataset
     # Other ranks will get a dummy loader (not used)
@@ -453,7 +459,7 @@ def model_training(args):
                     json.dump(args_dict, f, indent=4)
 
         scheduler.step()
-        train_sampler.set_epoch(epoch + 1)
+        # train_sampler.set_epoch(epoch + 1)
 
 
 if __name__ == "__main__":
