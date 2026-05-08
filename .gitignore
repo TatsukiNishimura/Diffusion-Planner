@@ -6,7 +6,7 @@ extension_ws/
 .cursor
 *dpo_experiment
 sample*
-.vscode
+.vscode/
 .datasets/
 
 */.agents/
@@ -22,3 +22,5 @@ wandb/
 
 driving_dataset/
 processed_dataset/
+
+.venv/
