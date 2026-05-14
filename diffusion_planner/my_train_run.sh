@@ -37,11 +37,16 @@ python3 -m torch.distributed.run --nnodes 1 --nproc-per-node 1 --standalone trai
 --exp_name ${exp_name} \
 --train_set_list $TRAIN_SET_LIST \
 --valid_set_list $VALID_SET_LIST \
---use_wandb False \
+--use_wandb True \
 --diffusion_model_type "x_start" \
 --save_dir ${SAVE_PATH} \
 --train_epochs 50 \
 --save_utd 10 \
+--batch_size 8 \
+--learning_rate 2e-5 \
+--use_turn_indicators False \
+--road_border_margin 0.1 \
+--neighbor_collision_margin 0.2 \
 2>&1 | tee ${SAVE_PATH}/train_log.txt
 
 # # sft
@@ -58,4 +63,4 @@ python3 -m torch.distributed.run --nnodes 1 --nproc-per-node 1 --standalone trai
 # 2>&1 | tee ${SAVE_PATH}/sft_log.txt
 
 # # Convert the trained PyTorch model to ONNX format
-# python3 ../ros_scripts/torch2onnx.py ${SAVE_PATH}
+python3 ../ros_scripts/torch2onnx.py ${SAVE_PATH}

@@ -59,8 +59,13 @@ class StatePerturbation:
         """
         self._augment_prob = augment_prob
         self._device = torch.device(device)
-        lo = ([0.0, -0.75, -0.2, -1, -0.5, -0.2, -0.1, 0.0, 0.0],)
-        hi = ([0.0, +0.75, +0.2, +1, +0.5, +0.2, +0.1, 0.0, 0.0],)
+        # lo = ([0.0, -0.75, -0.2, -1, -0.5, -0.2, -0.1, 0.0, 0.0],)
+        # hi = ([0.0, +0.75, +0.2, +1, +0.5, +0.2, +0.1, 0.0, 0.0],)
+
+        # [x, y, yaw, vx, vy, ax, ay, steering_angle, yaw_rate]
+        # 小型ロボット向けにスケールダウン
+        lo = ([0.0, -0.1, -0.2, -0.2, -0.1, -0.04, -0.02, 0.0, 0.0],)
+        hi = ([0.0,  0.1,  0.2,  0.2,  0.1,  0.04,  0.02, 0.0, 0.0],)
         self._low = torch.tensor(lo).to(self._device)
         self._high = torch.tensor(hi).to(self._device)
         self._wheel_base = wheel_base

@@ -77,7 +77,7 @@ def get_args():
     # Training
     parser.add_argument("--seed", type=int, default=3407)
     parser.add_argument("--train_epochs", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--batch_size", type=int, default=1024)
     parser.add_argument("--save_utd", type=int, default=10)
     parser.add_argument("--learning_rate", type=float, default=2e-4)
     parser.add_argument("--warm_up_epoch", type=int, default=5)
