@@ -2,48 +2,7 @@ import subprocess
 import time
 import os
 import signal
-
-def publish_initial_pose_via_cmd():
-    # トピック名
-    topic_name = "/initialpose"
-    # メッセージ型
-    msg_type = "geometry_msgs/msg/PoseWithCovarianceStamped"
-    
-    # YAML形式のデータ作成
-    # タイムスタンプは 'stamp: {sec: 0, nanosec: 0}' とすることで、
-    # 受信側のAutowareが現在の時刻として処理してくれることが多いです。
-    data = (
-        "{"
-        "header: {frame_id: 'map'}, "
-        "pose: {"
-            "pose: {"
-                "position: {x: 0.010169, y: -0.127890, z: 0.0}, "
-                "orientation: {x: 0.0, y: 0.0, z: 0.725101, w: 0.688642}"
-            "}, "
-            "covariance: ["
-                "0.25, 0.0, 0.0, 0.0, 0.0, 0.0, "
-                "0.0, 0.25, 0.0, 0.0, 0.0, 0.0, "
-                "0.0, 0.0, 0.0, 0.0, 0.0, 0.0, "
-                "0.0, 0.0, 0.0, 0.0, 0.0, 0.0, "
-                "0.0, 0.0, 0.0, 0.0, 0.0, 0.0, "
-                "0.0, 0.0, 0.0, 0.0, 0.0, 0.068539"
-            "]"
-        "}"
-        "}"
-    )
-
-    # コマンドの組み立て
-    # --once: 1回だけ送信して終了する
-    cmd = [
-        "ros2", "topic", "pub", "--once",
-        topic_name,
-        msg_type,
-        data
-    ]
-
-    print(f"Sending Initial Pose...")
-    # 実行
-    subprocess.run(cmd)
+from datetime import datetime
 
 def run_simulation_loop(base_map_path, n_maps, wait_time_per_sim=30):
     """
@@ -51,6 +10,8 @@ def run_simulation_loop(base_map_path, n_maps, wait_time_per_sim=30):
     """
     # 基準となるマップディレクトリ（絶対パスに変換）
     abs_base_path = os.path.abspath(base_map_path)
+    bag_base_dir = "./rosbags"
+    os.makedirs(bag_base_dir, exist_ok=True)
     
     print(f"Starting simulation loop for {n_maps} maps.")
     print(f"Base Map Path: {abs_base_path}")
@@ -85,11 +46,33 @@ def run_simulation_loop(base_map_path, n_maps, wait_time_per_sim=30):
         print(f"Waiting for {wait_time_per_sim} seconds...")
         time.sleep(wait_time_per_sim)
 
-        # # 一応５回くらい送っておく
-        # for _ in range(5):
-        #     publish_initial_pose_via_cmd()
-        #     time.sleep(0.1)
-        # time.sleep(1)
+
+        # ---------------------------------------------------------
+        # ROSBAG 記録の開始
+        # ---------------------------------------------------------
+        # タイムスタンプの取得 (例: 20260514_171622)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # 出力先のディレクトリ名 (例: /.../rosbags/map_001_20260514_171622)
+        bag_out_dir = os.path.join(bag_base_dir, f"{map_id_str}_{timestamp}")
+
+        # 記録するトピックのリスト
+        topics_to_record = [
+            "/localization/kinematic_state",
+            "/localization/acceleration",
+            "/perception/object_recognition/tracking/objects",
+            "/perception/traffic_light_recognition/traffic_signals",
+            "/planning/mission_planning/route",
+            "/vehicle/status/turn_indicators_status",
+            "/tf",
+            "/tf_static"
+        ]
+
+        # コマンドの組み立て: ros2 bag record -o <出力先> <トピック1> <トピック2> ...
+        rosbag_cmd = ["ros2", "bag", "record", "-o", bag_out_dir] + topics_to_record
+        
+        print(f"Starting rosbag record: {bag_out_dir}")
+        rosbag_proc = subprocess.Popen(rosbag_cmd, start_new_session=True)
+
 
 
         goal_log_path = "/tmp/goals_achieved.log"
@@ -133,7 +116,7 @@ def run_simulation_loop(base_map_path, n_maps, wait_time_per_sim=30):
       # 2. 【修正】 安全な終了処理（プロセスグループ全体に送る）
         print(f"Terminating all nodes for {map_id_str}...")
         
-        for p in [process, goal_proc]:
+        for p in [process, goal_proc,rosbag_proc]:
             try:
                 # PIDではなくグループID(pgid)に対して信号を送る
                 os.killpg(os.getpgid(p.pid), signal.SIGINT)
@@ -151,6 +134,7 @@ def run_simulation_loop(base_map_path, n_maps, wait_time_per_sim=30):
         # launchファイル名を含むプロセスを全て終了させる
         subprocess.run(["pkill", "-f", "only_map.launch.xml"], stderr=subprocess.DEVNULL)
         subprocess.run(["pkill", "-f", "automatic_goal_sender.launch.xml"], stderr=subprocess.DEVNULL)
+        subprocess.run(["pkill", "-f", "ros2 bag record"], stderr=subprocess.DEVNULL) # これも追加しておくと安心
         
         # ROS 2のデーモンが残って悪さをすることもあるので、不安ならこれも追加
         # subprocess.run(["ros2", "daemon", "stop"], stderr=subprocess.DEVNULL)
