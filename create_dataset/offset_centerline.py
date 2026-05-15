@@ -152,7 +152,7 @@ if __name__ == "__main__":
     # ======== 設定 ========
     INPUT_OSM_FILE = 'lanelet2_map.osm'      # 元となるOSMファイル
     OUTPUT_BASE_DIR = 'dataset_maps'         # 生成先の大元のフォルダ
-    N_MAPS_TO_GENERATE = 10                  # 生成するパターンの数
+    N_MAPS_TO_GENERATE = 500                  # 生成するパターンの数
     
     # オフセットをランダムに変化させたいLaneletのIDリスト
     # （ご提示いただいたファイルから抽出した全IDです）
@@ -160,8 +160,8 @@ if __name__ == "__main__":
     
     # 正規分布のパラメータ (mu:平均, sigma:標準偏差, limit:最大オフセット制限m)
     MU = 0.0
-    SIGMA = 0.2
-    LIMIT = 0.5
+    SIGMA = 0.3
+    LIMIT = 0.8
     # ======================
 
     generate_map_dataset(

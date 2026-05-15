@@ -2,9 +2,10 @@ import subprocess
 import time
 import os
 import signal
+import argparse  # 追加
 from datetime import datetime
 
-def run_simulation_loop(base_map_path, n_maps, wait_time_per_sim=30):
+def run_simulation_loop(base_map_path, n_maps, wait_time_per_sim=30, start_map=1): # start_mapを追加
     """
     連番のマップを順番に読み込んでシミュレータを起動・終了する
     """
@@ -13,10 +14,11 @@ def run_simulation_loop(base_map_path, n_maps, wait_time_per_sim=30):
     bag_base_dir = "./rosbags"
     os.makedirs(bag_base_dir, exist_ok=True)
     
-    print(f"Starting simulation loop for {n_maps} maps.")
+    print(f"Starting simulation loop for {n_maps} maps. (Starting from map_{start_map:03d})")
     print(f"Base Map Path: {abs_base_path}")
 
-    for i in range(1, n_maps + 1):
+    # rangeの開始を start_map に変更
+    for i in range(start_map, n_maps + 1):
         map_id_str = f"map_{i:03d}"
         # 引数として渡す相対パスを作成
         lanelet_file_rel_path = f"dataset_maps/{map_id_str}/lanelet2_map.osm"
@@ -38,24 +40,17 @@ def run_simulation_loop(base_map_path, n_maps, wait_time_per_sim=30):
         ]
 
         # プロセス起動
-        process = subprocess.Popen(cmd,start_new_session=True)
+        process = subprocess.Popen(cmd, start_new_session=True)
 
-        # ---------------------------------------------------------
-        # TODO: ここで ROSBAG record や 経路送信(API) の処理を挟む
-        # ---------------------------------------------------------
         print(f"Waiting for {wait_time_per_sim} seconds...")
         time.sleep(wait_time_per_sim)
-
 
         # ---------------------------------------------------------
         # ROSBAG 記録の開始
         # ---------------------------------------------------------
-        # タイムスタンプの取得 (例: 20260514_171622)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        # 出力先のディレクトリ名 (例: /.../rosbags/map_001_20260514_171622)
         bag_out_dir = os.path.join(bag_base_dir, f"{map_id_str}_{timestamp}")
 
-        # 記録するトピックのリスト
         topics_to_record = [
             "/localization/kinematic_state",
             "/localization/acceleration",
@@ -67,21 +62,16 @@ def run_simulation_loop(base_map_path, n_maps, wait_time_per_sim=30):
             "/tf_static"
         ]
 
-        # コマンドの組み立て: ros2 bag record -o <出力先> <トピック1> <トピック2> ...
         rosbag_cmd = ["ros2", "bag", "record", "-o", bag_out_dir] + topics_to_record
         
         print(f"Starting rosbag record: {bag_out_dir}")
         rosbag_proc = subprocess.Popen(rosbag_cmd, start_new_session=True)
 
-
-
         goal_log_path = "/tmp/goals_achieved.log"
 
-        # 1. 'rm -f' の処理を Python 側で行う（ファイルが存在する場合のみ削除）
         if os.path.exists(goal_log_path):
             os.remove(goal_log_path)
 
-        # 2. コマンドをリスト形式に分解する
         goal_sender_cmd = [
             "ros2",
             "launch",
@@ -92,59 +82,60 @@ def run_simulation_loop(base_map_path, n_maps, wait_time_per_sim=30):
             "allow_loop:=false",
         ]
 
-        # 3. shell=True なしで起動
-        goal_proc = subprocess.Popen(goal_sender_cmd,start_new_session=True)
+        goal_proc = subprocess.Popen(goal_sender_cmd, start_new_session=True)
 
         time.sleep(2)
         with open(goal_log_path, 'r', encoding='utf-8') as f:
-            # ファイルの最後までシーク（既存の過去ログを無視する場合）
             f.seek(0, os.SEEK_END)
             
             while True:
                 line = f.readline()
-                print(line)
+                print(line, end="") # 改行が二重になるのを防ぐため end="" を追加
                 if not line:
-                    # 新しい行がない場合は指定秒数待機
                     time.sleep(5)
                     continue
                 
-                # 読み込んだ行に特定の文面が含まれているか確認
                 if "G1" in line:
-                    print(f"発見しました: {line.strip()}")
+                    print(f"\n発見しました: {line.strip()}")
                     break
 
-      # 2. 【修正】 安全な終了処理（プロセスグループ全体に送る）
+        # ---------------------------------------------------------
+        # 終了処理
+        # ---------------------------------------------------------
         print(f"Terminating all nodes for {map_id_str}...")
         
-        for p in [process, goal_proc,rosbag_proc]:
+        for p in [process, goal_proc, rosbag_proc]:
             try:
-                # PIDではなくグループID(pgid)に対して信号を送る
                 os.killpg(os.getpgid(p.pid), signal.SIGINT)
-                
                 try:
-                    p.wait(timeout=3) # Autowareは重いので長めに待つ
+                    p.wait(timeout=3)
                 except subprocess.TimeoutExpired:
                     print("Force killing process group...")
                     os.killpg(os.getpgid(p.pid), signal.SIGKILL)
                     p.wait()
             except ProcessLookupError:
-                pass # 既に死んでいる場合は無視
+                pass 
 
-        # 3. 【追加】 念には念を：名前で残党を狩る
-        # launchファイル名を含むプロセスを全て終了させる
         subprocess.run(["pkill", "-f", "only_map.launch.xml"], stderr=subprocess.DEVNULL)
         subprocess.run(["pkill", "-f", "automatic_goal_sender.launch.xml"], stderr=subprocess.DEVNULL)
-        subprocess.run(["pkill", "-f", "ros2 bag record"], stderr=subprocess.DEVNULL) # これも追加しておくと安心
+        subprocess.run(["pkill", "-f", "ros2 bag record"], stderr=subprocess.DEVNULL) 
         
-        # ROS 2のデーモンが残って悪さをすることもあるので、不安ならこれも追加
-        # subprocess.run(["ros2", "daemon", "stop"], stderr=subprocess.DEVNULL)
-
         print(f"Finished {map_id_str}. Waiting for cleanup...")
-        time.sleep(3) # 次のループへ行く前に、ポートや共有メモリが解放されるのを待つ
+        time.sleep(3)
 
 if __name__ == "__main__":
-    # treeコマンドの結果に基づいたパス設定
-    BASE_MAP_DIR = "/home/tatsukinishimura/autoware_map/room206_for_data_collection/" # room206_for_data_collection フォルダ内で実行する場合
-    TOTAL_MAPS = 10    # 生成済みのマップ数
+    # コマンドライン引数の設定
+    parser = argparse.ArgumentParser(description="Run Autoware simulation loop for multiple maps.")
+    parser.add_argument(
+        "--start", 
+        type=int, 
+        default=1, 
+        help="開始するマップの番号（例: 3 を指定すると map_003 から開始）"
+    )
+    args = parser.parse_args()
+
+    BASE_MAP_DIR = "/home/tatsukinishimura/autoware_map/room206_for_data_collection/" 
+    TOTAL_MAPS = 500
     
-    run_simulation_loop(BASE_MAP_DIR, TOTAL_MAPS,wait_time_per_sim=3)
+    # 引数から受け取った開始番号を関数に渡す
+    run_simulation_loop(BASE_MAP_DIR, TOTAL_MAPS, wait_time_per_sim=3, start_map=args.start)

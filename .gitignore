@@ -24,3 +24,6 @@ driving_dataset/
 processed_dataset/
 
 .venv/
+
+nohup.log
+training_result/
