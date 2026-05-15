@@ -27,3 +27,4 @@ processed_dataset/
 
 nohup.log
 training_result/
+rosbags/
