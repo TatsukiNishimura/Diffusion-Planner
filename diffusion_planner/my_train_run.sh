@@ -3,12 +3,10 @@ set -ux
 exp_name=${1}
 TRAIN_SET_LIST=${2}
 VALID_SET_LIST=${3}
-SFT_SET_LIST=${4}
 
 # to convert full paths
 TRAIN_SET_LIST=$(readlink -f $TRAIN_SET_LIST)
 VALID_SET_LIST=$(readlink -f $VALID_SET_LIST)
-SFT_SET_LIST=$(readlink -f $SFT_SET_LIST)
 
 cd $(dirname $0)
 
