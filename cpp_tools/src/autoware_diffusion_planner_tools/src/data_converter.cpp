@@ -1181,7 +1181,7 @@ int main(int argc, char ** argv)
         (ego_future_last_x - goal_x) * (ego_future_last_x - goal_x) +
         (ego_future_last_y - goal_y) * (ego_future_last_y - goal_y));
 
-      if (stopping_count > INPUT_T && distance_to_goal_pose < 5.0) {
+      if (stopping_count > INPUT_T && distance_to_goal_pose < 0.5) {
         std::cout << "finish at " << i << " because stopping_count=" << stopping_count
                   << " and distance_to_goal_pose=" << distance_to_goal_pose << std::endl;
         break;
